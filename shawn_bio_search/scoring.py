@@ -1,0 +1,124 @@
+"""Scoring module for claim-level evidence evaluation."""
+
+import re
+from typing import Any, Dict, List, Set
+
+
+_NEG_TERMS = {
+    "not", "no", "without", "lack", "lacks", "failed", "fail", "fails",
+    "reduced", "decrease", "decreased", "lower", "suppressed",
+    "inhibit", "inhibited", "inhibits",
+}
+
+
+def _tokenize(text: str) -> Set[str]:
+    return set(re.findall(r"[a-zA-Z0-9]{3,}", (text or "").lower()))
+
+
+def _overlap_ratio(base: str, target: str) -> float:
+    a = _tokenize(base)
+    b = _tokenize(target)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a)
+
+
+def _split_sentences(text: str) -> List[str]:
+    if not text:
+        return []
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    parts = re.split(r"(?<=[.!?])\s+", cleaned)
+    return [p.strip() for p in parts if len(p.strip()) >= 30]
+
+
+def _claim_is_negative(claim: str) -> bool:
+    return any(t in _tokenize(claim) for t in _NEG_TERMS)
+
+
+def _sentence_analysis(claim: str, hypothesis: str, text: str) -> Dict[str, Any]:
+    """Analyze sentences for support/contradiction."""
+    sentences = _split_sentences(text)
+    if not claim or not sentences:
+        return {
+            "support_score": 0.0,
+            "contradiction_score": 0.0,
+            "best_support_sentence": "",
+            "best_contradict_sentence": "",
+            "hypothesis_sentence_overlap": 0.0,
+            "stage2_score": 0.0,
+        }
+    
+    claim_neg = _claim_is_negative(claim)
+    best_support = (0.0, "")
+    best_contra = (0.0, "")
+    best_hyp = 0.0
+    
+    for s in sentences:
+        ov = _overlap_ratio(claim, s)
+        hov = _overlap_ratio(hypothesis, s) if hypothesis else 0.0
+        stoks = _tokenize(s)
+        has_neg = any(t in _NEG_TERMS for t in stoks)
+        
+        support = ov
+        contra = 0.0
+        if claim_neg:
+            if not has_neg:
+                contra = ov * 0.85
+        else:
+            if has_neg:
+                contra = ov * 0.85
+        
+        if support > best_support[0]:
+            best_support = (support, s)
+        if contra > best_contra[0]:
+            best_contra = (contra, s)
+        if hov > best_hyp:
+            best_hyp = hov
+    
+    stage2 = max(0.0, best_support[0] - 0.7 * best_contra[0] + 0.25 * best_hyp)
+    
+    return {
+        "support_score": round(best_support[0], 4),
+        "contradiction_score": round(best_contra[0], 4),
+        "best_support_sentence": best_support[1],
+        "best_contradict_sentence": best_contra[1],
+        "hypothesis_sentence_overlap": round(best_hyp, 4),
+        "stage2_score": round(min(stage2, 1.0), 4),
+    }
+
+
+def score_paper(paper: Dict[str, Any], claim: str, hypothesis: str) -> Dict[str, Any]:
+    """Score a paper for claim/hypothesis relevance."""
+    text = f"{paper.get('title', '')} {paper.get('abstract', '')}".strip()
+    
+    claim_overlap = _overlap_ratio(claim, text) if claim else 0.0
+    hypothesis_overlap = _overlap_ratio(hypothesis, text) if hypothesis else 0.0
+    
+    citations = paper.get("citations") or 0
+    if isinstance(citations, str) and citations.isdigit():
+        citations = int(citations)
+    if not isinstance(citations, int):
+        citations = 0
+    
+    cite_component = min(citations, 500) / 500.0
+    stage1 = round(0.55 * claim_overlap + 0.25 * hypothesis_overlap + 0.20 * cite_component, 4)
+    
+    s2 = _sentence_analysis(claim, hypothesis, paper.get("abstract") or "")
+    
+    if claim and (paper.get("abstract") or "").strip():
+        evidence_score = round(0.45 * stage1 + 0.55 * s2["stage2_score"], 4)
+    else:
+        evidence_score = stage1
+    
+    paper["claim_overlap"] = round(claim_overlap, 4)
+    paper["hypothesis_overlap"] = round(hypothesis_overlap, 4)
+    paper["stage1_score"] = stage1
+    paper["stage2_score"] = s2["stage2_score"]
+    paper["support_score"] = s2["support_score"]
+    paper["contradiction_score"] = s2["contradiction_score"]
+    paper["best_support_sentence"] = s2["best_support_sentence"]
+    paper["best_contradict_sentence"] = s2["best_contradict_sentence"]
+    paper["hypothesis_sentence_overlap"] = s2["hypothesis_sentence_overlap"]
+    paper["evidence_score"] = evidence_score
+    
+    return paper
