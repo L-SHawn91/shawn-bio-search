@@ -124,7 +124,7 @@ MIT License - see [LICENSE](LICENSE) file.
 If you use Shawn-Bio-Search in your research, please cite:
 
 ```
-Lee S. (2024). Shawn-Bio-Search: Multi-source biomedical literature search 
+Lee S. (2026). Shawn-Bio-Search: Multi-source biomedical literature search 
 with claim-level evidence scoring. GitHub repository.
 https://github.com/L-SHawn91/shawn-bio-search
 ```
