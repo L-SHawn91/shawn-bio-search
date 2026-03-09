@@ -11,8 +11,8 @@ Example:
     "adenomyosis ivf meta-analysis" \
     "Adenomyosis is associated with poorer IVF outcomes." \
     "Pregnancy endpoints should be secondary in early-phase uterine fibrosis trials." \
-    "/home/mdge/.openclaw/workspace/tmp_persp/adeno_mode" \
-    "/home/mdge/Clouds/onedrive/Papers/Zotero/papers" \
+    "./outputs/adeno_mode" \
+    "/path/to/Zotero/papers" \
     --fast
 USAGE
   exit 1

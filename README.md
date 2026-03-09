@@ -119,7 +119,7 @@ One-command pipeline for manuscript-ready evidence package:
   "Adenomyosis is associated with poorer IVF outcomes." \
   "Pregnancy endpoints should be secondary in early-phase uterine fibrosis trials." \
   "./outputs/adeno_v2" \
-  "/home/mdge/Clouds/onedrive/Papers/Zotero/papers" \
+  "/path/to/Zotero/papers" \
   --fast --with-kaggle --with-cellcog
 ```
 
