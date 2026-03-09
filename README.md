@@ -15,6 +15,19 @@ A unified Python interface for searching biomedical literature across 9+ sources
 - **CLI + Python API**: Use from command line or import as module
 - **Deduplication**: Automatic removal of duplicate papers across sources
 
+## Source support matrix (maturity)
+
+| Source | Cost | Key needed | Maturity | Notes |
+|---|---|---|---|---|
+| PubMed | Free | Optional (`NCBI_API_KEY`) | Stable | Biomedical primary source |
+| OpenAlex | Free | No | Stable | Broad metadata/citation graph |
+| Crossref | Free | No | Stable | DOI metadata normalization |
+| Europe PMC | Free | No | Stable | OA coverage strong |
+| Semantic Scholar | Free (rate-limited) | Optional | Beta | Good recall/impact signals |
+| Scopus | Paid/institutional | Yes | Conditional | Institution contract required |
+| Google Scholar (SerpAPI) | Paid key | Yes (`SERPAPI_API_KEY`) | Conditional | Recall expansion only |
+| ClinicalTrials/bioRxiv/medRxiv | Free | No | Experimental | best-effort adapters |
+
 ## Installation
 
 ```bash
@@ -109,6 +122,27 @@ When using `-c/--claim`:
 [europe_pmc] Evidence: 0.78 | Gjorevski N et al. (2016). Designer matrices...
 ```
 
+## Quickstart by usage level
+
+### A) Free mode (no paid keys)
+
+```bash
+shawn-bio-search -q "endometrial organoid" -f json -o results_free.json
+```
+
+### B) API-extended mode
+
+```bash
+export NCBI_API_KEY="..."
+export SERPAPI_API_KEY="..."   # optional
+export SCOPUS_API_KEY="..."    # optional institutional
+shawn-bio-search -q "adenomyosis IVF" -c "Adenomyosis worsens IVF outcomes" -f json
+```
+
+### C) Full writing workflow mode
+
+Use the pipeline script to generate review/citation/evidence packages.
+
 ## Paper Writing Mode (v2)
 
 One-command pipeline for manuscript-ready evidence package:
@@ -156,6 +190,18 @@ chmod 600 ~/.kaggle/kaggle.json
   --zotero-root "$ZOTERO_ROOT" \
   --fast --with-kaggle
 ```
+
+## Evidence scoring (what the score means)
+
+`evidence_score` is a ranking aid, not proof by itself. It combines:
+- claim/hypothesis term overlap
+- source quality/metadata completeness (DOI etc.)
+- support vs contradiction signal from abstract-level text
+
+Recommended interpretation:
+- `supporting` and `contradicting` papers should both be reviewed
+- high score without DOI/full text should be treated as provisional
+- final citation decisions should use sentence-level verification
 
 ## Documentation
 
