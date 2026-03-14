@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/_load_openclaw_shared_env.sh"
+load_openclaw_shared_env || true
+load_openclaw_shared_services || true
+
 if [[ $# -lt 1 ]]; then
   echo "Usage:"
   echo "  $0 \"query\" [author-aliases] [out.json]"

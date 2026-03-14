@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/_load_openclaw_shared_env.sh"
+load_openclaw_shared_env || true
+load_openclaw_shared_services || true
+
 usage() {
   cat <<'USAGE'
 Usage:
@@ -70,7 +76,6 @@ if [[ -z "$ZOTERO_ROOT" ]]; then
   exit 2
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BASE_CMD=("$SCRIPT_DIR/run_paper_writing_mode.sh" "$QUERY" "$CLAIM" "$HYP" "$OUT_PREFIX" "--zotero-root" "$ZOTERO_ROOT")
 $FAST && BASE_CMD+=(--fast)
 "${BASE_CMD[@]}"

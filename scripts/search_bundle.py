@@ -4,11 +4,14 @@
 import argparse
 import json
 import os
+from _load_openclaw_shared_env import load_openclaw_shared_env
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Tuple
 
 import dataset_search as ds
 import gather_papers as gp
+
+load_openclaw_shared_env()
 
 
 def _pick_sources(args: argparse.Namespace) -> List[Tuple[str, bool, Any]]:
