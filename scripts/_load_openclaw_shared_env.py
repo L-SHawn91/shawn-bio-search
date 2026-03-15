@@ -19,7 +19,6 @@ def _load_simple_env_file(path: str) -> bool:
 def load_openclaw_shared_env() -> None:
     candidates = [
         os.environ.get("OPENCLAW_SHARED_ENV"),
-        "/home/mdge/.openclaw/workspace/.secrets/shared/api_keys.env",
         os.path.expanduser("~/.openclaw/workspace/.secrets/shared/api_keys.env"),
     ]
     for path in candidates:
@@ -29,7 +28,6 @@ def load_openclaw_shared_env() -> None:
 
     service_candidates = [
         os.environ.get("OPENCLAW_SHARED_SERVICES"),
-        "/home/mdge/.openclaw/workspace/.secrets/shared/services.env",
         os.path.expanduser("~/.openclaw/workspace/.secrets/shared/services.env"),
     ]
     for path in service_candidates:

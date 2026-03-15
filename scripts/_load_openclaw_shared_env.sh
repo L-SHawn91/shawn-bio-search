@@ -3,7 +3,6 @@
 load_openclaw_shared_env() {
   local candidates=(
     "${OPENCLAW_SHARED_ENV:-}"
-    "/home/mdge/.openclaw/workspace/.secrets/shared/api_keys.env"
     "$HOME/.openclaw/workspace/.secrets/shared/api_keys.env"
   )
   local f
@@ -22,7 +21,6 @@ load_openclaw_shared_env() {
 load_openclaw_shared_services() {
   local candidates=(
     "${OPENCLAW_SHARED_SERVICES:-}"
-    "/home/mdge/.openclaw/workspace/.secrets/shared/services.env"
     "$HOME/.openclaw/workspace/.secrets/shared/services.env"
   )
   local f
