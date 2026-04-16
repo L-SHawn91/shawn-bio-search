@@ -149,28 +149,32 @@ def _compute_context_score(
     keywords: List[str] | None,
     context_sentence: str | None,
 ) -> float:
-    """Score how well a paper matches the citation context.
+    """Score how well a paper can be identified as the intended citation.
 
-    Combines:
-      - keyword overlap between context and title+abstract (0-0.5)
-      - bigram/phrase overlap for more precise matching (0-0.3)
-      - MeSH term overlap with keywords (0-0.2)
+    PURPOSE: Help find the RIGHT paper among candidates with the same author+year.
+    This is NOT a judgment of whether the citation is appropriate for the sentence.
+    The author's citation choice is always assumed correct.
+
+    Scoring:
+      - author+year match from search strategy → base 0.35 (assumed correct)
+      - keyword overlap for disambiguation among same-author papers (0-0.35)
+      - species/domain overlap as soft signal, NO penalty (0-0.15)
+      - MeSH overlap (0-0.15)
     """
     title = (paper.get("title") or "").lower()
     abstract = (paper.get("abstract") or "").lower()
     mesh = [m.lower() for m in paper.get("mesh_terms", [])]
     paper_text = f"{title} {abstract}"
 
-    score = 0.0
+    # Base score: if we found this paper via author+year search, it's likely correct
+    score = 0.35
 
-    # --- Keyword overlap (0-0.5) ---
+    # --- Keyword overlap (0-0.35) — for disambiguation only ---
     context_terms: List[str] = []
     if keywords:
         context_terms.extend([k.lower().rstrip("*") for k in keywords])
     if context_sentence:
-        # Extract meaningful words from context sentence
         words = re.findall(r'[a-z]{4,}', context_sentence.lower())
-        # Filter stopwords
         stops = {'with', 'from', 'that', 'this', 'have', 'been', 'were', 'also',
                  'their', 'these', 'which', 'into', 'between', 'through', 'during',
                  'including', 'under', 'than', 'both', 'more', 'each', 'most'}
@@ -180,9 +184,9 @@ def _compute_context_score(
         unique_terms = list(set(context_terms))
         matches = sum(1 for t in unique_terms if t in paper_text)
         if unique_terms:
-            score += 0.5 * (matches / len(unique_terms))
+            score += 0.35 * (matches / len(unique_terms))
 
-    # --- Species/domain signal words (bonus 0-0.2) ---
+    # --- Species/domain signal — bonus only, NO penalty ---
     species_terms = ['bovine', 'porcine', 'canine', 'feline', 'equine', 'ovine',
                      'human', 'mouse', 'rat', 'primate', 'macaque',
                      'cow', 'pig', 'dog', 'cat', 'horse', 'sheep']
@@ -190,23 +194,18 @@ def _compute_context_score(
     paper_species = [s for s in species_terms if s in paper_text]
     if context_species and paper_species:
         if set(context_species) & set(paper_species):
-            score += 0.15  # species match bonus
-        else:
-            score -= 0.2  # species MISMATCH penalty
+            score += 0.10
 
-    # --- Domain signal words (bonus/penalty) ---
     domain_terms = ['organoid', 'endometri', 'decidual', 'implant', 'placent',
-                    'uterine', 'pregnancy', 'reproductive']
+                    'uterine', 'pregnancy', 'reproductive', 'embryo', 'conceptus',
+                    'bovine', 'porcine', 'fertility', 'hormone']
     context_domain = [d for d in domain_terms if d in ' '.join(context_terms)]
     paper_domain = [d for d in domain_terms if d in paper_text]
-    if context_domain:
-        if paper_domain:
-            overlap = len(set(context_domain) & set(paper_domain))
-            score += 0.15 * (overlap / len(context_domain))
-        else:
-            score -= 0.15  # domain mismatch penalty
+    if context_domain and paper_domain:
+        overlap = len(set(context_domain) & set(paper_domain))
+        score += 0.05 * min(1.0, overlap / max(len(context_domain), 1))
 
-    # --- MeSH overlap (0-0.2) ---
+    # --- MeSH overlap (0-0.15) ---
     if mesh and context_terms:
         mesh_text = ' '.join(mesh)
         mesh_matches = sum(1 for t in context_terms if t in mesh_text)
@@ -343,14 +342,22 @@ def _semantic_scholar_search(
 
 
 def _score_to_confidence(score: float) -> str:
-    if score >= 0.6:
+    """Classify confidence level.
+
+    Since base score is 0.35 (author+year match), thresholds are adjusted:
+    - HIGH: base + good keyword overlap
+    - MEDIUM: base + some overlap (most author+year matches land here)
+    - LOW: only partial match
+    - UNLIKELY: very low overlap among many candidates (likely wrong person)
+    """
+    if score >= 0.55:
         return "HIGH"
-    elif score >= 0.35:
+    elif score >= 0.40:
         return "MEDIUM"
-    elif score >= 0.15:
+    elif score >= 0.25:
         return "LOW"
     else:
-        return "MISMATCH"
+        return "UNLIKELY"
 
 
 def _build_verification_strategies(
