@@ -3,16 +3,14 @@
 ## Quick Start
 
 ```python
-# MUST use Python 3.13+
-import sys
-sys.path.insert(0, '/Users/soohyunglee/GitHub/shawn-bio-search')
+# Requires Python 3.10+
+# pip install -e /path/to/shawn-bio-search
+from shawn_bio_search.sources.pubmed import verify_citation
 ```
 
-## Citation Verification (NEW)
+## Citation Verification
 
 ```python
-from shawn_bio_search.sources.pubmed import verify_citation
-
 results = verify_citation(
     first_author="Turco",
     year="2017",
@@ -50,14 +48,15 @@ results = search_papers(
     query="endometrial organoid",
     claim="Organoids model human endometrial function",
     max_results=10,
-    project_mode="endometrial-organoid-review",
     sources=["pubmed", "europe_pmc", "openalex", "crossref"],
 )
 ```
 
+## Environment Variables (optional)
+- `NCBI_API_KEY` — higher PubMed rate limits
+- `SEMANTIC_SCHOLAR_API_KEY` or `S2_API_KEY` — Semantic Scholar access
+- `CROSSREF_EMAIL` — polite pool for Crossref API
+
 ## Development
 
-This tool is under active development. If a feature is missing or broken:
-1. Read the source code to understand the issue
-2. Fix it directly
-3. Commit and push
+This tool is under active development. Contributions welcome.

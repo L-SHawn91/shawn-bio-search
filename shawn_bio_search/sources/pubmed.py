@@ -246,7 +246,7 @@ def _crossref_search(
     }
     url = f"https://api.crossref.org/works?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(url, headers={
-        "User-Agent": "shawn-bio-search/2.0 (mailto:leseichi@konkuk.ac.kr)"
+        "User-Agent": f"shawn-bio-search/2.0 (mailto:{os.getenv('CROSSREF_EMAIL', 'user@example.com')})"
     })
 
     try:
