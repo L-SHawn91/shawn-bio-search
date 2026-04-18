@@ -1,6 +1,6 @@
 # SHawn-bio-search Output Schema
 
-This document defines the preferred machine-facing output contract when `SHawn-bio-search` is used as the retrieval engine in the SHawn dual-engine architecture.
+This document defines the preferred machine-facing output contract when `SHawn-bio-search` is used as the retrieval engine in the SHawn dual-engine architecture (and optionally in the 3-way linkage with `SHawn-paper-mapping` + `SHawn-academic-research`).
 
 ## Purpose
 
@@ -13,6 +13,7 @@ This document defines the preferred machine-facing output contract when `SHawn-b
 
 Preferred files:
 - `SEARCH_RESULTS.json`
+- `EVIDENCE_CANDIDATES.json` (claim-aware retrieval output)
 - `DATASETS.json`
 - `CITATIONS.md`
 - `CITATIONS.bib`
@@ -55,6 +56,8 @@ Each item in `results` should prefer these fields:
 - `access`
 - `local_path`
 - `zotero_match`
+- `evidence_score` — optional float 0.0–1.0 retrieval-side relevance heuristic
+- `evidence_label` — optional retrieval-side hint (`support` | `contradict` | `uncertain` | `retrieval-hint`)
 
 Recommended `access` subfields:
 - `status` — `open` | `paywalled` | `restricted` | `unknown`
@@ -64,7 +67,37 @@ Recommended `access` subfields:
 - `pdf_url`
 - `license`
 
-## 2) DATASETS.json
+## 2) EVIDENCE_CANDIDATES.json
+
+Purpose:
+- claim-aware retrieval candidates grouped by claim for downstream synthesis
+- consumed by `SHawn-academic-research` when claim-level interpretation is needed
+
+Top-level fields:
+- `project` — optional project name or slug
+- `backend` — should be `SHawn-bio-search`
+- `run_label` — stable run identifier
+- `generated_at` — ISO timestamp
+- `claims` — list of claim-keyed candidate groups
+
+Each item in `claims` should prefer these fields:
+- `claim_id`
+- `claim_text`
+- `candidates` — list of evidence candidate records
+
+Each candidate should prefer these fields:
+- `bucket` — `support` | `contradict` | `uncertain` | `mention-only` (downstream folds `mention-only` into `uncertain`)
+- `citation_key`
+- `reason`
+- `directness` — `direct` | `indirect` | `transferred`
+- `model_context`
+- `notes`
+- `evidence_score` — optional retrieval-side score for the candidate
+- `evidence_label` — optional retrieval-side hint
+
+`EVIDENCE_CANDIDATES.json` is strictly a **retrieval-side proposal**; wrapper-side interpretation (final `bucket` assignment, `directness` resolution, confidence framing) is owned by `SHawn-academic-research`.
+
+## 3) DATASETS.json
 
 Purpose:
 - normalized dataset candidates and repository metadata
@@ -88,7 +121,7 @@ Each item in `results` should prefer these fields:
 - `download_url`
 - `access`
 
-## 3) CITATIONS.md
+## 4) CITATIONS.md
 
 Purpose:
 - readable citation ledger with minimal downstream cleaning
@@ -101,7 +134,7 @@ Each entry should include:
 - DOI
 - short relevance note
 
-## 4) AVAILABILITY_REPORT.md
+## 5) AVAILABILITY_REPORT.md
 
 Purpose:
 - human-readable summary of access status and local availability
@@ -113,7 +146,7 @@ Recommended sections:
 - manual-fetch-needed list
 - dataset repository counts
 
-## 5) LOCAL_LIBRARY_MATCHES.csv
+## 6) LOCAL_LIBRARY_MATCHES.csv
 
 Purpose:
 - operational table for locally available papers
@@ -129,7 +162,7 @@ Recommended columns:
 - `local_pdf_path`
 - `pdf_url`
 
-## 6) SEARCH_LOG.md
+## 7) SEARCH_LOG.md
 
 Purpose:
 - trace of search behavior and retrieval conditions
@@ -143,6 +176,22 @@ Recommended sections:
 - query expansion status
 - retrieval warnings
 - key limits and assumptions
+
+## Cross-tool evaluation linkage
+
+The retrieval bundle emitted by `SHawn-bio-search` is the producer in a dual-engine (and optionally 3-way) linkage:
+
+```
+SHawn-bio-search  →  SHawn-paper-mapping  →  SHawn-academic-research
+   (retrieval)        (normalization)         (synthesis + evaluation)
+```
+
+Downstream consumers of this schema:
+
+- **`SHawn-paper-mapping`** ingests candidate paper lists to populate `PAPER_MASTER` rows (see that repo's `docs/integration/BIO_SEARCH_EXPORT_CONTRACT_260401.md`). Uses `citation_key`, `authors`, `year`, `title`, `doi`, `pmid`, `abstract` from `SEARCH_RESULTS.json`.
+- **`SHawn-academic-research`** ingests `SEARCH_RESULTS.json` and, when present, `EVIDENCE_CANDIDATES.json` (see that repo's `docs/INPUT_SCHEMA_FROM_BIO_SEARCH.md`). The `evidence_score`, `evidence_label`, `access.status`, and `local_library.found` fields contribute to the downstream `REPORT.md` evaluation axes (detailed in `docs/EVALUATION_HANDOFF.md`).
+
+Keep this schema stable enough that either downstream consumer can be added or removed without invalidating the bundle.
 
 ## Boundary rule
 
