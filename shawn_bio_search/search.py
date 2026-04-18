@@ -12,6 +12,12 @@ from .sources.clinicaltrials import fetch_clinicaltrials
 from .sources.biorxiv import fetch_biorxiv
 from .sources.medrxiv import fetch_medrxiv
 from .sources.semanticscholar import fetch_semanticscholar
+from .sources.arxiv import fetch_arxiv
+from .sources.openaire import fetch_openaire
+from .sources.core import fetch_core
+from .sources.unpaywall import fetch_unpaywall
+from .sources.f1000research import fetch_f1000research
+from .sources.doaj import fetch_doaj
 
 # Optional sources (require API keys)
 from .sources.scopus import fetch_scopus, search_scopus_authors, fetch_scopus_author_publications
@@ -134,6 +140,12 @@ def search_papers(
         "semantic_scholar": fetch_semanticscholar,
         "scopus": fetch_scopus,
         "google_scholar": fetch_google_scholar,
+        "arxiv": fetch_arxiv,
+        "openaire": fetch_openaire,
+        "core": fetch_core,
+        "unpaywall": fetch_unpaywall,
+        "f1000research": fetch_f1000research,
+        "doaj": fetch_doaj,
     }
     
     if sources is None:
@@ -150,14 +162,20 @@ def search_papers(
         fetch_func = all_sources[source_name]
         try:
             results = fetch_func(effective_query, max_results)
-            if not results and source_name in ["scopus", "google_scholar", "semantic_scholar"]:
+            if not results and source_name in ["scopus", "google_scholar", "semantic_scholar", "core"]:
                 if source_name == "semantic_scholar":
                     if not (os.getenv("SEMANTIC_SCHOLAR_API_KEY") or os.getenv("S2_API_KEY")):
                         warnings.append("semantic_scholar skipped: API key not set")
+                elif source_name == "google_scholar":
+                    if not os.getenv("SERPAPI_API_KEY"):
+                        warnings.append("google_scholar skipped: SERPAPI_API_KEY not set")
+                elif source_name == "core":
+                    if not os.getenv("CORE_API_KEY"):
+                        warnings.append("core skipped: CORE_API_KEY not set")
                 else:
                     api_key_var = f"{source_name.upper()}_API_KEY"
-                    if not os.getenv(api_key_var) and not os.getenv(f"{source_name.upper().replace('_', '')}_API_KEY"):
-                        warnings.append(f"{source_name} skipped: API key not set")
+                    if not os.getenv(api_key_var):
+                        warnings.append(f"{source_name} skipped: {api_key_var} not set")
             papers.extend(results)
         except Exception as e:
             warnings.append(f"{source_name} failed: {e}")

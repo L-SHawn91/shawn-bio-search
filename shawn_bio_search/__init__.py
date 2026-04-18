@@ -3,7 +3,7 @@ Shawn-Bio-Search: Multi-source biomedical literature search with claim-level evi
 
 A unified interface for searching biomedical literature across multiple sources:
 - PubMed (NCBI)
-- Scopus (Elsevier)
+- Scopus (Elsevier, requires API key)
 - Google Scholar (via SerpAPI)
 - Europe PMC
 - OpenAlex
@@ -11,6 +11,13 @@ A unified interface for searching biomedical literature across multiple sources:
 - ClinicalTrials.gov
 - bioRxiv
 - medRxiv
+- Semantic Scholar
+- arXiv (q-bio)
+- OpenAIRE
+- CORE (requires API key)
+- Unpaywall
+- F1000Research
+- DOAJ
 
 Example:
     >>> from shawn_bio_search import search_papers

@@ -23,15 +23,42 @@ def _headers() -> Optional[Dict[str, str]]:
     return headers
 
 
+def _extract_authors(entry: Dict[str, Any]) -> List[str]:
+    """Pull full author list from a Scopus entry, falling back to dc:creator."""
+    author_block = entry.get("author")
+    authors: List[str] = []
+    if isinstance(author_block, list):
+        for a in author_block:
+            if not isinstance(a, dict):
+                continue
+            label = a.get("authname") or a.get("ce:indexed-name") or a.get("given-name")
+            if label:
+                authors.append(str(label))
+    if not authors:
+        creator = entry.get("dc:creator")
+        if creator:
+            authors = [str(creator)]
+    return authors
+
+
 def fetch_scopus(query: str, limit: int) -> List[Dict[str, Any]]:
-    """Fetch papers from Scopus (requires SCOPUS_API_KEY)."""
+    """Fetch papers from Scopus (requires SCOPUS_API_KEY).
+
+    Uses `view=COMPLETE` so abstract (dc:description), journal name, and full
+    author list come back in the search response.
+    """
     headers = _headers()
     if not headers:
         return []
 
     url = (
         "https://api.elsevier.com/content/search/scopus?"
-        + urllib.parse.urlencode({"query": query, "count": str(limit), "sort": "-citedby-count"})
+        + urllib.parse.urlencode({
+            "query": query,
+            "count": str(limit),
+            "sort": "-citedby-count",
+            "view": "COMPLETE",
+        })
     )
 
     try:
@@ -43,16 +70,16 @@ def fetch_scopus(query: str, limit: int) -> List[Dict[str, Any]]:
 
     out = []
     for e in entries:
-        creator = e.get("dc:creator")
         out.append({
             "source": "scopus",
             "id": e.get("dc:identifier") or "",
             "title": e.get("dc:title") or "",
-            "authors": [creator] if creator else [],
+            "authors": _extract_authors(e),
             "year": int((e.get("prism:coverDate") or "0")[:4] or 0),
             "doi": e.get("prism:doi"),
+            "journal": e.get("prism:publicationName") or "",
             "url": e.get("prism:url") or "",
-            "abstract": "",
+            "abstract": e.get("dc:description") or "",
             "citations": int(e.get("citedby-count") or 0),
         })
 

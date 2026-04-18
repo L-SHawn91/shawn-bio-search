@@ -11,6 +11,15 @@ Global dataset sources:
 - BIGD/GSA (NGDC/CNCB)
 - CNGBdb (best-effort public page parsing)
 - DDBJ Search (best-effort public page parsing)
+- OmicsDI (EBI cross-omics aggregator)
+- MetaboLights (EBI metabolomics)
+- ProteomeXchange (proteomics umbrella)
+- Zenodo (generic scientific data)
+- Figshare (generic scientific data)
+- Dryad (research data)
+- DataCite (DOI registry for data)
+- CZ CELLxGENE (single-cell atlas)
+- GDC / TCGA (NIH cancer genomics)
 """
 
 import argparse
@@ -541,6 +550,392 @@ def fetch_ddbj(query: str, limit: int) -> List[Dict[str, Any]]:
     return out
 
 
+def fetch_omicsdi(query: str, limit: int) -> List[Dict[str, Any]]:
+    """OmicsDI: cross-omics aggregator (EBI). Returns entries from GEO, PRIDE,
+    MetaboLights, ArrayExpress, and many others unified in one search."""
+    params = {"query": query, "size": str(max(1, min(limit, 100))), "start": "0"}
+    url = "https://www.omicsdi.org/ws/dataset/search?" + urllib.parse.urlencode(params)
+    try:
+        data = _get_json(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    out = []
+    for d in (data.get("datasets") or [])[:limit]:
+        acc = d.get("id") or ""
+        repo = (d.get("source") or d.get("database") or "omicsdi").lower()
+        title = d.get("title") or ""
+        description = d.get("description") or ""
+        organisms = d.get("organism") or d.get("organisms") or []
+        if isinstance(organisms, list):
+            organism = ", ".join([str(o) for o in organisms if o])
+        else:
+            organism = str(organisms)
+        out.append(
+            {
+                "repository": f"omicsdi:{repo}",
+                "accession": acc,
+                "title": title,
+                "organism": organism,
+                "assay": d.get("omics_type") or d.get("omicsType") or "",
+                "sample_count": None,
+                "disease": ", ".join(d.get("diseases") or []) if isinstance(d.get("diseases"), list) else "",
+                "tissue": ", ".join(d.get("tissues") or []) if isinstance(d.get("tissues"), list) else "",
+                "summary": description or title,
+                "year": _year_from_text(str(d.get("publicationDate") or d.get("submissionDate") or "")),
+                "raw_available": None,
+                "processed_available": None,
+                "url": f"https://www.omicsdi.org/dataset/{repo}/{acc}" if acc else "https://www.omicsdi.org/",
+            }
+        )
+    return out
+
+
+def fetch_metabolights(query: str, limit: int) -> List[Dict[str, Any]]:
+    """MetaboLights: metabolomics studies (EBI)."""
+    url = "https://www.ebi.ac.uk/metabolights/ws/studies/public/search?" + urllib.parse.urlencode({"query": query})
+    try:
+        data = _get_json(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    rows = data.get("content") or data.get("studies") or []
+    if isinstance(rows, dict):
+        rows = rows.get("studies") or []
+    out = []
+    for r in rows[:limit]:
+        acc = r.get("accession") or r.get("studyIdentifier") or ""
+        title = r.get("title") or ""
+        organism = r.get("organism") or ""
+        if isinstance(organism, list):
+            organism = ", ".join([str(o) for o in organism if o])
+        out.append(
+            {
+                "repository": "metabolights",
+                "accession": acc,
+                "title": title,
+                "organism": str(organism or ""),
+                "assay": "metabolomics",
+                "sample_count": None,
+                "disease": "",
+                "tissue": "",
+                "summary": r.get("description") or title,
+                "year": _year_from_text(str(r.get("publicDate") or r.get("submissionDate") or "")),
+                "raw_available": True,
+                "processed_available": True,
+                "url": f"https://www.ebi.ac.uk/metabolights/{acc}" if acc else "",
+            }
+        )
+    return out
+
+
+def fetch_proteomexchange(query: str, limit: int) -> List[Dict[str, Any]]:
+    """ProteomeXchange: proteomics umbrella (PRIDE, MassIVE, jPOST, iProX, Panorama)."""
+    url = "https://proteomecentral.proteomexchange.org/api/proxi/v0.1/datasets?" + urllib.parse.urlencode(
+        {"searchTerms": query, "pageSize": str(max(1, min(limit, 100))), "pageNumber": "1"}
+    )
+    try:
+        data = _get_json(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    rows = data if isinstance(data, list) else data.get("datasets") or []
+    out = []
+    for r in rows[:limit]:
+        acc = r.get("identifier") or r.get("accession") or ""
+        title = r.get("title") or ""
+        species = r.get("species") or []
+        organism = ""
+        if isinstance(species, list):
+            names = []
+            for sp in species:
+                if isinstance(sp, dict):
+                    names.append(sp.get("name") or sp.get("accession") or "")
+                elif sp:
+                    names.append(str(sp))
+            organism = ", ".join([n for n in names if n])
+        out.append(
+            {
+                "repository": "proteomexchange",
+                "accession": acc,
+                "title": title,
+                "organism": organism,
+                "assay": "proteomics",
+                "sample_count": None,
+                "disease": "",
+                "tissue": "",
+                "summary": r.get("summary") or title,
+                "year": _year_from_text(str(r.get("announceDate") or r.get("publicReleaseDate") or "")),
+                "raw_available": True,
+                "processed_available": None,
+                "url": f"https://proteomecentral.proteomexchange.org/cgi/GetDataset?ID={acc}" if acc else "",
+            }
+        )
+    return out
+
+
+def fetch_zenodo(query: str, limit: int) -> List[Dict[str, Any]]:
+    """Zenodo: generic open-science data/software. Filter by type=dataset."""
+    params = {
+        "q": query,
+        "size": str(max(1, min(limit, 100))),
+        "type": "dataset",
+        "sort": "bestmatch",
+    }
+    token = __import__("os").getenv("ZENODO_TOKEN")
+    if token:
+        params["access_token"] = token
+    url = "https://zenodo.org/api/records?" + urllib.parse.urlencode(params)
+    try:
+        data = _get_json(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    out = []
+    for h in (data.get("hits", {}).get("hits") or [])[:limit]:
+        metadata = h.get("metadata") or {}
+        acc = str(h.get("id") or "")
+        doi = metadata.get("doi") or ""
+        title = metadata.get("title") or ""
+        description = _strip_tags(metadata.get("description") or "")
+        out.append(
+            {
+                "repository": "zenodo",
+                "accession": doi or acc,
+                "title": title,
+                "organism": "",
+                "assay": _infer_assay(title + " " + description),
+                "sample_count": None,
+                "disease": "",
+                "tissue": "",
+                "summary": description[:500],
+                "year": _year_from_text(str(metadata.get("publication_date") or "")),
+                "raw_available": True,
+                "processed_available": None,
+                "url": h.get("links", {}).get("html") or (f"https://doi.org/{doi}" if doi else ""),
+            }
+        )
+    return out
+
+
+def fetch_figshare(query: str, limit: int) -> List[Dict[str, Any]]:
+    """Figshare: generic scientific data. Uses POST-style JSON search."""
+    body = json.dumps({"search_for": query, "item_type": 3, "page_size": max(1, min(limit, 100))}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.figshare.com/v2/articles/search",
+        data=body,
+        headers={"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "Mozilla/5.0"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            rows = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return []
+
+    out = []
+    for r in (rows or [])[:limit]:
+        doi = r.get("doi") or ""
+        acc = str(r.get("id") or doi)
+        title = r.get("title") or ""
+        out.append(
+            {
+                "repository": "figshare",
+                "accession": acc,
+                "title": title,
+                "organism": "",
+                "assay": _infer_assay(title),
+                "sample_count": None,
+                "disease": "",
+                "tissue": "",
+                "summary": title,
+                "year": _year_from_text(str(r.get("published_date") or r.get("timeline", {}).get("firstOnline") or "")),
+                "raw_available": True,
+                "processed_available": None,
+                "url": r.get("url_public_html") or r.get("url") or (f"https://doi.org/{doi}" if doi else ""),
+            }
+        )
+    return out
+
+
+def fetch_dryad(query: str, limit: int) -> List[Dict[str, Any]]:
+    """Dryad: data publishing platform."""
+    params = {"q": query, "per_page": str(max(1, min(limit, 100))), "page": "1"}
+    url = "https://datadryad.org/api/v2/search?" + urllib.parse.urlencode(params)
+    try:
+        data = _get_json(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    rows = (data.get("_embedded") or {}).get("stash:datasets") or data.get("datasets") or []
+    out = []
+    for r in rows[:limit]:
+        doi = r.get("identifier") or r.get("doi") or ""
+        title = r.get("title") or ""
+        description = _strip_tags(r.get("abstract") or "")
+        out.append(
+            {
+                "repository": "dryad",
+                "accession": doi,
+                "title": title,
+                "organism": "",
+                "assay": _infer_assay(title + " " + description),
+                "sample_count": None,
+                "disease": "",
+                "tissue": "",
+                "summary": description[:500],
+                "year": _year_from_text(str(r.get("publicationDate") or r.get("lastModificationDate") or "")),
+                "raw_available": True,
+                "processed_available": None,
+                "url": f"https://doi.org/{doi.lstrip('doi:')}" if doi else "",
+            }
+        )
+    return out
+
+
+def fetch_datacite(query: str, limit: int) -> List[Dict[str, Any]]:
+    """DataCite: DOI registry for research data. Filter resource-type to Dataset."""
+    params = {
+        "query": query,
+        "resource-type-id": "dataset",
+        "page[size]": str(max(1, min(limit, 100))),
+    }
+    url = "https://api.datacite.org/dois?" + urllib.parse.urlencode(params)
+    try:
+        data = _get_json(url, headers={"Accept": "application/vnd.api+json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    out = []
+    for d in (data.get("data") or [])[:limit]:
+        attrs = d.get("attributes") or {}
+        doi = attrs.get("doi") or ""
+        titles = attrs.get("titles") or []
+        title = titles[0].get("title") if titles and isinstance(titles[0], dict) else ""
+        descriptions = attrs.get("descriptions") or []
+        description = descriptions[0].get("description") if descriptions and isinstance(descriptions[0], dict) else ""
+        subjects = attrs.get("subjects") or []
+        subj_texts = [s.get("subject") for s in subjects if isinstance(s, dict) and s.get("subject")]
+        out.append(
+            {
+                "repository": "datacite",
+                "accession": doi,
+                "title": title or "",
+                "organism": "",
+                "assay": _infer_assay((title or "") + " " + " ".join(subj_texts)),
+                "sample_count": None,
+                "disease": "",
+                "tissue": "",
+                "summary": _strip_tags(description or "")[:500],
+                "year": int(attrs.get("publicationYear")) if attrs.get("publicationYear") else None,
+                "raw_available": True,
+                "processed_available": None,
+                "url": attrs.get("url") or (f"https://doi.org/{doi}" if doi else ""),
+            }
+        )
+    return out
+
+
+def fetch_cellxgene(query: str, limit: int) -> List[Dict[str, Any]]:
+    """CZ CELLxGENE: human/mouse single-cell datasets.
+
+    Uses the Census-Discover collections endpoint and filters client-side by
+    matching query tokens against title/description/organism.
+    """
+    url = "https://api.cellxgene.cziscience.com/curation/v1/collections"
+    try:
+        data = _get_json(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    qtoks = _tokenize(query)
+    out = []
+    for c in data or []:
+        title = c.get("name") or ""
+        description = c.get("description") or ""
+        orgs = c.get("organisms") or []
+        if isinstance(orgs, list):
+            organism = ", ".join([o.get("label") if isinstance(o, dict) else str(o) for o in orgs])
+        else:
+            organism = str(orgs or "")
+        corpus = f"{title} {description} {organism}".lower()
+        if qtoks and not (qtoks & _tokenize(corpus)):
+            continue
+        acc = c.get("collection_id") or c.get("id") or ""
+        out.append(
+            {
+                "repository": "cellxgene",
+                "accession": acc,
+                "title": title,
+                "organism": organism,
+                "assay": "scRNA-Seq",
+                "sample_count": None,
+                "disease": "",
+                "tissue": "",
+                "summary": description[:500],
+                "year": _year_from_text(str(c.get("published_at") or c.get("created_at") or "")),
+                "raw_available": True,
+                "processed_available": True,
+                "url": f"https://cellxgene.cziscience.com/collections/{acc}" if acc else "https://cellxgene.cziscience.com/",
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out
+
+
+def fetch_gdc(query: str, limit: int) -> List[Dict[str, Any]]:
+    """NIH GDC (TCGA and other cancer programs). Searches projects."""
+    filters = json.dumps(
+        {
+            "op": "or",
+            "content": [
+                {"op": "match", "content": {"field": "name", "value": query}},
+                {"op": "match", "content": {"field": "project_id", "value": query}},
+                {"op": "match", "content": {"field": "primary_site", "value": query}},
+                {"op": "match", "content": {"field": "disease_type", "value": query}},
+            ],
+        }
+    )
+    params = {
+        "filters": filters,
+        "size": str(max(1, min(limit, 100))),
+        "fields": "project_id,name,primary_site,disease_type,program.name,summary.case_count,released",
+        "format": "json",
+    }
+    url = "https://api.gdc.cancer.gov/projects?" + urllib.parse.urlencode(params)
+    try:
+        data = _get_json(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+    except Exception:
+        return []
+
+    out = []
+    for h in (data.get("data", {}).get("hits") or [])[:limit]:
+        pid = h.get("project_id") or ""
+        name = h.get("name") or pid
+        diseases = h.get("disease_type") or []
+        sites = h.get("primary_site") or []
+        case_count = (h.get("summary") or {}).get("case_count")
+        out.append(
+            {
+                "repository": "gdc",
+                "accession": pid,
+                "title": name,
+                "organism": "Homo sapiens",
+                "assay": "cancer genomics",
+                "sample_count": case_count,
+                "disease": ", ".join(diseases) if isinstance(diseases, list) else str(diseases),
+                "tissue": ", ".join(sites) if isinstance(sites, list) else str(sites),
+                "summary": name,
+                "year": None,
+                "raw_available": True,
+                "processed_available": True,
+                "url": f"https://portal.gdc.cancer.gov/projects/{pid}" if pid else "https://portal.gdc.cancer.gov/",
+            }
+        )
+    return out
+
+
 def dedupe(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen = set()
     out = []
@@ -568,6 +963,15 @@ def main() -> int:
     parser.add_argument("--no-bigd", action="store_true")
     parser.add_argument("--no-cngb", action="store_true")
     parser.add_argument("--no-ddbj", action="store_true")
+    parser.add_argument("--no-omicsdi", action="store_true")
+    parser.add_argument("--no-metabolights", action="store_true")
+    parser.add_argument("--no-proteomexchange", action="store_true")
+    parser.add_argument("--no-zenodo", action="store_true")
+    parser.add_argument("--no-figshare", action="store_true")
+    parser.add_argument("--no-dryad", action="store_true")
+    parser.add_argument("--no-datacite", action="store_true")
+    parser.add_argument("--no-cellxgene", action="store_true")
+    parser.add_argument("--no-gdc", action="store_true")
     parser.add_argument("--out", default="")
     args = parser.parse_args()
 
@@ -633,6 +1037,60 @@ def main() -> int:
             datasets.extend(got)
         except Exception as exc:
             warnings.append(f"ddbj failed: {exc}")
+
+    if not args.no_omicsdi:
+        try:
+            datasets.extend(fetch_omicsdi(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"omicsdi failed: {exc}")
+
+    if not args.no_metabolights:
+        try:
+            datasets.extend(fetch_metabolights(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"metabolights failed: {exc}")
+
+    if not args.no_proteomexchange:
+        try:
+            datasets.extend(fetch_proteomexchange(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"proteomexchange failed: {exc}")
+
+    if not args.no_zenodo:
+        try:
+            datasets.extend(fetch_zenodo(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"zenodo failed: {exc}")
+
+    if not args.no_figshare:
+        try:
+            datasets.extend(fetch_figshare(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"figshare failed: {exc}")
+
+    if not args.no_dryad:
+        try:
+            datasets.extend(fetch_dryad(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"dryad failed: {exc}")
+
+    if not args.no_datacite:
+        try:
+            datasets.extend(fetch_datacite(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"datacite failed: {exc}")
+
+    if not args.no_cellxgene:
+        try:
+            datasets.extend(fetch_cellxgene(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"cellxgene failed: {exc}")
+
+    if not args.no_gdc:
+        try:
+            datasets.extend(fetch_gdc(args.query, args.max_per_source))
+        except Exception as exc:
+            warnings.append(f"gdc failed: {exc}")
 
     datasets = dedupe(datasets)
     scored = [_score_dataset(d, args.query, args.organism, args.assay) for d in datasets]

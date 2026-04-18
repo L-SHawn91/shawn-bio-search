@@ -287,7 +287,12 @@ def _crossref_search(
 def _semantic_scholar_search(
     author: str, year: str, keywords: List[str] | None = None, limit: int = 5
 ) -> List[Dict[str, Any]]:
-    """Search Semantic Scholar by query + year filter."""
+    """Search Semantic Scholar by query + year filter.
+
+    Uses proper TLS verification via the shared _http helper.
+    """
+    from ._http import http_json, build_url
+
     query_parts = [author]
     if keywords:
         query_parts.extend(kw.rstrip("*") for kw in keywords[:3])
@@ -297,9 +302,9 @@ def _semantic_scholar_search(
         "query": query_str,
         "year": year,
         "limit": str(limit),
-        "fields": "title,authors,year,externalIds,journal,abstract,citationCount",
+        "fields": "title,authors,year,externalIds,journal,abstract,citationCount,paperId",
     }
-    url = f"https://api.semanticscholar.org/graph/v1/paper/search?{urllib.parse.urlencode(params)}"
+    url = build_url("https://api.semanticscholar.org/graph/v1/paper/search", params)
 
     s2_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY") or os.getenv("S2_API_KEY")
     headers: Dict[str, str] = {}
@@ -307,13 +312,7 @@ def _semantic_scholar_search(
         headers["x-api-key"] = s2_key
 
     try:
-        import ssl
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
-            data = __import__("json").loads(resp.read().decode("utf-8"))
+        data = http_json(url, headers=headers, timeout=20)
     except Exception:
         return []
 
