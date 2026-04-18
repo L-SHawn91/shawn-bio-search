@@ -33,6 +33,12 @@ _HOST_MIN_INTERVAL: Dict[str, float] = {
     "zenodo.org": 0.5,
     "api.figshare.com": 0.3,
     "api.datacite.org": 0.3,
+    "www.biorxiv.org": 1.1,
+    "www.medrxiv.org": 1.1,
+    "europepmc.org": 0.5,
+    "ftp.ncbi.nlm.nih.gov": 0.5,
+    "datadryad.org": 0.5,
+    "api.cellxgene.cziscience.com": 0.3,
 }
 _LAST_CALL_AT: Dict[str, float] = {}
 
