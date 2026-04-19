@@ -21,6 +21,12 @@ _SOURCE_WEIGHTS = {
     "clinicaltrials": 0.9,
     "biorxiv": 0.84,
     "medrxiv": 0.84,
+    "arxiv": 0.82,
+    "openaire": 0.9,
+    "core": 0.88,
+    "unpaywall": 0.9,
+    "f1000research": 0.92,
+    "doaj": 0.9,
 }
 
 

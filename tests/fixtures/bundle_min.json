@@ -1,0 +1,66 @@
+{
+  "query": "endometrial organoid",
+  "papers": {
+    "papers": [
+      {
+        "source": "biorxiv",
+        "id": "10.1101/2024.01.02.123456",
+        "title": "Example preprint",
+        "authors": ["Smith J", "Doe A"],
+        "year": 2024,
+        "doi": "10.1101/2024.01.02.123456",
+        "url": "https://www.biorxiv.org/content/10.1101/2024.01.02.123456",
+        "abstract": ""
+      },
+      {
+        "source": "europe_pmc",
+        "id": "PMC9876543",
+        "pmcid": "PMC9876543",
+        "title": "EPMC article",
+        "authors": ["Turco M"],
+        "year": 2017,
+        "doi": "10.1038/ncb3516",
+        "url": "https://europepmc.org/article/MED/28145436",
+        "abstract": ""
+      },
+      {
+        "source": "arxiv",
+        "id": "2401.12345",
+        "title": "arXiv preprint",
+        "authors": ["Lee K"],
+        "year": 2024,
+        "doi": "",
+        "url": "https://arxiv.org/abs/2401.12345",
+        "abstract": ""
+      },
+      {
+        "source": "clinicaltrials",
+        "id": "NCT01234567",
+        "title": "Trial registration",
+        "authors": [],
+        "year": 2020,
+        "doi": "",
+        "url": "https://clinicaltrials.gov/study/NCT01234567",
+        "abstract": ""
+      }
+    ]
+  },
+  "datasets": {
+    "datasets": [
+      {
+        "repository": "zenodo",
+        "accession": "10.5281/zenodo.1234567",
+        "title": "Example Zenodo dataset",
+        "url": "https://zenodo.org/records/1234567",
+        "year": 2024
+      },
+      {
+        "repository": "sra",
+        "accession": "SRP123456",
+        "title": "Example SRA study",
+        "url": "https://www.ncbi.nlm.nih.gov/sra/?term=SRP123456",
+        "year": 2022
+      }
+    ]
+  }
+}
