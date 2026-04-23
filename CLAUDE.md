@@ -1,4 +1,9 @@
-# shawn-bio-search — Claude Code Instructions
+# SHawn-bio-search — Claude Code Instructions
+
+## Canonical status
+
+`SHawn-bio-search` is the canonical SHawn ecosystem retrieval repo.
+If you detect a parallel lowercase repo line (`shawn-bio-search`), treat it as a feature-source or forensic line, not the default home. New integration work should land here first unless the user explicitly says otherwise.
 
 ## Quick Start
 

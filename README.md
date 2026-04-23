@@ -28,6 +28,8 @@ It does **not** aim to be the manuscript-facing interpretation engine. Project-a
 - **Paper + Dataset Discovery**: Find candidate literature and datasets from global sources
 - **Access Enrichment**: Track DOI/PMID/PMCID, URLs, and downloadability status
 - **Local Library Lookup**: Check whether a paper already exists in a Zotero-backed local paper store
+- **Accession Resolver Layer**: Resolve dataset accession families across NCBI/ENA/DDBJ/NGDC/CNGB style identifiers and support citation-unit vs analysis-unit distinction
+- **Citation Confidence Evaluation**: Bench and test retrieval-side citation verification confidence before downstream manuscript use
 - **Multiple Output Formats**: Plain text, Markdown, JSON
 - **CLI + Python API**: Use from command line or import as module
 - **Deduplication**: Automatic removal of duplicate papers across sources
@@ -93,16 +95,34 @@ shawn-bio-search -q "COVID-19" -s pubmed,europe_pmc
 ### Python API
 
 ```python
-from shawn_bio_search import search_papers
+from shawn_bio_search import search_papers, resolve_accession, verify_citation
 
 # Basic search
 results = search_papers(query="organoid stem cell", max_results=10)
 print(results.to_plain())
 
-# Access raw data
-import json
-print(results.to_json())
+# Accession resolution
+resolved = resolve_accession("GSE108570")
+print(resolved)
+
+# Citation verification
+hits = verify_citation(
+    first_author="Turco",
+    year="2017",
+    context_keywords=["endometrial", "organoid"],
+)
+print(hits[:1])
 ```
+
+## Canonical ecosystem status
+
+`SHawn-bio-search` is the canonical SHawn ecosystem retrieval engine.
+
+As of 2026-04-24, advanced retrieval-core improvements from the parallel lowercase repo line (`shawn-bio-search`) were selectively forward-ported here on branch `merge/lowercase-feature-absorb-260424`.
+The ecosystem policy is:
+- canonical retrieval home = `SHawn-bio-search`
+- feature-line absorb source = `shawn-bio-search`
+- do not delete or merge the lowercase repo blindly before remote governance review
 
 ## API Keys (Optional)
 
@@ -247,6 +267,16 @@ If you want explicit control over the local paper store, add:
 ```bash
 --zotero-root /path/to/Zotero/papers
 ```
+
+## Validation notes
+
+Focused absorb validation completed on 2026-04-24 in the canonical repo using:
+- `tests/test_accession_resolver.py`
+- `tests/test_citation_confidence.py`
+
+Current result at absorb time:
+- 41 passed
+- 1 warning (`pytest.mark.network` registration warning only)
 
 ## Ranking and boundary notes
 
