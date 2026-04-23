@@ -29,6 +29,61 @@ def _openalex_abstract(inv: Any) -> str:
     return " ".join([w for w in words if w]).strip()
 
 
+def lookup_doi_by_title(title: str, mailto: str | None = None,
+                         per_page: int = 5) -> Dict[str, Any] | None:
+    """Find a work by title via OpenAlex /works search.
+
+    Returns top hit dict with {doi, title, authors, year, similarity_score}
+    or None. Caller should compare similarity_score to a threshold (≥0.85
+    typical) before trusting.
+
+    Used by SHawn-paper-mapping for recovering DOIs of papers whose PDF
+    first-page extraction failed.
+    """
+    if not title or len(title.strip()) < 12:
+        return None
+    params = {"search": title.strip()[:200], "per-page": str(per_page)}
+    if mailto:
+        params["mailto"] = mailto
+    url = "https://api.openalex.org/works?" + urllib.parse.urlencode(params)
+    try:
+        data = _get_json(url)
+    except Exception:
+        return None
+    rows = data.get("results", []) or []
+    if not rows:
+        return None
+    # Score each hit by title similarity (Jaccard on lowercased word sets is
+    # cheap and good enough for DOI-recovery sanity).
+    target = set(title.lower().split())
+    scored = []
+    for r in rows:
+        cand_title = r.get("display_name") or ""
+        if not cand_title:
+            continue
+        cand = set(cand_title.lower().split())
+        if not cand:
+            continue
+        jaccard = len(target & cand) / max(1, len(target | cand))
+        scored.append((jaccard, r))
+    if not scored:
+        return None
+    scored.sort(reverse=True, key=lambda x: x[0])
+    top_sim, top = scored[0]
+    doi_url = top.get("doi")
+    doi = doi_url.replace("https://doi.org/", "") if isinstance(doi_url, str) else None
+    authors = [a.get("author", {}).get("display_name")
+               for a in top.get("authorships") or []]
+    authors = [a for a in authors if a]
+    return {
+        "doi": doi,
+        "title": top.get("display_name"),
+        "authors": authors[:5],
+        "year": int(top.get("publication_year") or 0),
+        "similarity_score": round(top_sim, 3),
+    }
+
+
 def fetch_source_by_name(venue_name: str, mailto: str | None = None) -> Dict[str, Any] | None:
     """Look up an OpenAlex `source` (journal/venue) by name.
 
