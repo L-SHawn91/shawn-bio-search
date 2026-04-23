@@ -19,6 +19,7 @@ from .core import fetch_core
 from .unpaywall import fetch_unpaywall, fetch_unpaywall_by_doi
 from .f1000research import fetch_f1000research
 from .doaj import fetch_doaj
+from .scival import fetch_scival_author_metrics
 
 # Sources that work with no API key at all.
 FREE_SOURCES = [
@@ -40,6 +41,7 @@ FREE_SOURCES = [
 # Each value lists env vars whose presence (any of them) enables the source.
 KEYED_SOURCES: Dict[str, List[str]] = {
     "scopus": ["SCOPUS_API_KEY"],
+    "scival": ["SCIVAL_API_KEY", "SCOPUS_API_KEY"],
     "google_scholar": ["SERPAPI_API_KEY"],
     "core": ["CORE_API_KEY"],
     "unpaywall": ["UNPAYWALL_EMAIL", "CROSSREF_EMAIL"],
@@ -102,6 +104,7 @@ __all__ = [
     "fetch_unpaywall_by_doi",
     "fetch_f1000research",
     "fetch_doaj",
+    "fetch_scival_author_metrics",
     "ALL_SOURCES",
     "FREE_SOURCES",
     "KEYED_SOURCES",
