@@ -29,20 +29,42 @@ def _openalex_abstract(inv: Any) -> str:
     return " ".join([w for w in words if w]).strip()
 
 
-def lookup_doi_by_title(title: str, mailto: str | None = None,
+def lookup_doi_by_title(title: str,
+                         author: str | None = None,
+                         year: int | str | None = None,
+                         mailto: str | None = None,
                          per_page: int = 5) -> Dict[str, Any] | None:
     """Find a work by title via OpenAlex /works search.
 
-    Returns top hit dict with {doi, title, authors, year, similarity_score}
-    or None. Caller should compare similarity_score to a threshold (≥0.85
-    typical) before trusting.
+    When `author` (typically `paper.authors_short` like "Santamaria et al.")
+    and/or `year` are provided, they are folded into the search string AND
+    used to re-rank candidates (Jaccard title × author-substring × year-match).
+    This dramatically reduces false top-hits for short or generic titles.
+
+    Returns top hit dict with {doi, title, authors, year, similarity_score,
+    author_match, year_match} or None.
 
     Used by SHawn-paper-mapping for recovering DOIs of papers whose PDF
     first-page extraction failed.
     """
     if not title or len(title.strip()) < 12:
         return None
-    params = {"search": title.strip()[:200], "per-page": str(per_page)}
+
+    # Build query: title + last-name (author "Santamaria et al." → "Santamaria")
+    query_parts = [title.strip()[:200]]
+    if author:
+        first_word = author.strip().split()[0].rstrip(",")
+        if first_word and first_word.lower() not in ("?", "anon", "anonymous"):
+            query_parts.append(first_word)
+    if year:
+        try:
+            yi = int(str(year)[:4])
+            if 1900 < yi < 2100:
+                query_parts.append(str(yi))
+        except (TypeError, ValueError):
+            pass
+
+    params = {"search": " ".join(query_parts), "per-page": str(per_page)}
     if mailto:
         params["mailto"] = mailto
     url = "https://api.openalex.org/works?" + urllib.parse.urlencode(params)
@@ -53,23 +75,45 @@ def lookup_doi_by_title(title: str, mailto: str | None = None,
     rows = data.get("results", []) or []
     if not rows:
         return None
-    # Score each hit by title similarity (Jaccard on lowercased word sets is
-    # cheap and good enough for DOI-recovery sanity).
-    target = set(title.lower().split())
+
+    target_words = set(title.lower().split())
+    author_first = (author or "").strip().split()[0].lower().rstrip(",") if author else ""
+    try:
+        year_int = int(str(year)[:4]) if year else 0
+    except (TypeError, ValueError):
+        year_int = 0
+
     scored = []
     for r in rows:
         cand_title = r.get("display_name") or ""
         if not cand_title:
             continue
-        cand = set(cand_title.lower().split())
-        if not cand:
+        cand_words = set(cand_title.lower().split())
+        if not cand_words:
             continue
-        jaccard = len(target & cand) / max(1, len(target | cand))
-        scored.append((jaccard, r))
+        jaccard = len(target_words & cand_words) / max(1, len(target_words | cand_words))
+
+        # Author / year boost
+        cand_authors = [a.get("author", {}).get("display_name") or ""
+                        for a in r.get("authorships") or []]
+        cand_author_blob = " ".join(cand_authors).lower()
+        author_match = bool(author_first and author_first in cand_author_blob)
+
+        cand_year = int(r.get("publication_year") or 0)
+        year_match = bool(year_int and abs(cand_year - year_int) <= 1)
+
+        boosted = jaccard
+        if author_match:
+            boosted += 0.30
+        if year_match:
+            boosted += 0.10
+        scored.append((boosted, jaccard, author_match, year_match, r))
+
     if not scored:
         return None
     scored.sort(reverse=True, key=lambda x: x[0])
-    top_sim, top = scored[0]
+    boosted_sim, raw_jaccard, am, ym, top = scored[0]
+
     doi_url = top.get("doi")
     doi = doi_url.replace("https://doi.org/", "") if isinstance(doi_url, str) else None
     authors = [a.get("author", {}).get("display_name")
@@ -80,7 +124,10 @@ def lookup_doi_by_title(title: str, mailto: str | None = None,
         "title": top.get("display_name"),
         "authors": authors[:5],
         "year": int(top.get("publication_year") or 0),
-        "similarity_score": round(top_sim, 3),
+        "similarity_score": round(raw_jaccard, 3),
+        "boosted_score": round(boosted_sim, 3),
+        "author_match": am,
+        "year_match": ym,
     }
 
 
