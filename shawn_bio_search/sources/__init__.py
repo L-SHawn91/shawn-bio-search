@@ -1,5 +1,7 @@
 """Source modules for biomedical literature search."""
 
+from __future__ import annotations
+
 import os
 from typing import Dict, List
 
