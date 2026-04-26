@@ -224,6 +224,55 @@ def fetch_work_concepts_by_doi(doi: str, mailto: str | None = None) -> Dict[str,
     }
 
 
+def lookup_ids_by_doi(doi: str, mailto: str | None = None) -> Dict[str, Any] | None:
+    """Recover all canonical IDs (PMID, OpenAlex Work, PMCID, MAG) from a DOI.
+
+    OpenAlex's /works/doi:{DOI} endpoint returns an `ids` block that mirrors
+    every external identifier OpenAlex has crosswalked. One round-trip gives
+    you DOI + PMID + PMCID + OpenAlex Work + MAG ID, removing the need for
+    NCBI's separate ID converter API.
+
+    Returned dict (None if DOI not found):
+        {
+          "openalex_work": "W3198361313" or None,
+          "pmid":          "34486650"     or None,
+          "pmcid":         "PMC8456789"   or None,
+          "mag":           "3198361313"   or None,
+          "doi":           "10.1242/dev.199577",
+        }
+
+    Strips OpenAlex/PubMed URL prefixes so callers get raw IDs only.
+    """
+    if not doi:
+        return None
+    doi = doi.strip().lower()
+    if doi.startswith("doi:"):
+        doi = doi[4:]
+    if doi.startswith("https://doi.org/"):
+        doi = doi[len("https://doi.org/"):]
+    url = f"https://api.openalex.org/works/doi:{urllib.parse.quote(doi, safe='/.')}"
+    if mailto:
+        url += "?mailto=" + urllib.parse.quote(mailto)
+    try:
+        data = _get_json(url)
+    except Exception:
+        return None
+    ids = data.get("ids") or {}
+
+    def _strip(prefix: str, val: str | None) -> str | None:
+        if not val:
+            return None
+        return val[len(prefix):] if val.startswith(prefix) else val
+
+    return {
+        "openalex_work": _strip("https://openalex.org/", ids.get("openalex")),
+        "pmid": _strip("https://pubmed.ncbi.nlm.nih.gov/", ids.get("pmid")),
+        "pmcid": _strip("https://www.ncbi.nlm.nih.gov/pmc/articles/", ids.get("pmcid")),
+        "mag": ids.get("mag"),
+        "doi": doi,
+    }
+
+
 def fetch_openalex(query: str, limit: int) -> List[Dict[str, Any]]:
     """Fetch papers from OpenAlex."""
     params = {"search": query, "per-page": str(max(1, min(limit, 200)))}
