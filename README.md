@@ -126,6 +126,23 @@ export NCBI_API_KEY="your_key_here"
 
 Or create a `.env` file (see `.env.example`).
 
+## HTTP cache
+
+Successful idempotent responses (GET with no body) are cached in a local
+SQLite database so that repeated searches and citation verifications skip
+the network. The cache is on by default.
+
+| Setting | Default | Notes |
+|---|---|---|
+| `SBS_DISABLE_CACHE` | unset (cache on) | set to `1` to bypass entirely |
+| `SBS_CACHE_TTL_DAYS` | `7` | float values accepted; `0` disables |
+| `SBS_CACHE_DIR` | `~/.cache/shawn-bio-search/` | directory for `http_cache.sqlite` |
+| `--no-cache` (CLI) | off | per-run override; sets `SBS_DISABLE_CACHE=1` |
+
+POST requests, requests with a body, and any non-2xx responses are never
+cached. Failures bypass the cache layer entirely so transient errors do
+not pollute it.
+
 ## Output Format
 
 ### Plain Text (Default)

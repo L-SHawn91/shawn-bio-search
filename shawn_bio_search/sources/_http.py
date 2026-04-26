@@ -2,6 +2,9 @@
 
 Use `http_json` / `http_text` from new source modules to avoid duplicating
 urllib boilerplate. Existing modules may migrate over time.
+
+Successful idempotent responses (GET with no body) are transparently cached
+via `shawn_bio_search._cache`. See that module for opt-out env vars.
 """
 
 from __future__ import annotations
@@ -13,6 +16,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, Optional
+
+from .. import _cache
 
 USER_AGENT = "shawn-bio-search/0.1 (+https://github.com/l-shawn91/shawn-bio-search)"
 DEFAULT_TIMEOUT = 30
@@ -68,6 +73,13 @@ def _open(
     if headers:
         merged_headers.update(headers)
 
+    cache_key: Optional[str] = None
+    if data is None and (method is None or method.upper() == "GET"):
+        cache_key = _cache.make_key(url, merged_headers, data, method)
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            return cached
+
     ctx = ssl.create_default_context()  # verifies certs by default
     last_exc: Optional[BaseException] = None
 
@@ -76,7 +88,10 @@ def _open(
         try:
             req = urllib.request.Request(url, data=data, headers=merged_headers, method=method)
             with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-                return resp.read()
+                body = resp.read()
+                if cache_key is not None:
+                    _cache.put(cache_key, body)
+                return body
         except urllib.error.HTTPError as exc:
             if exc.code == 429 and attempt < max_retries:
                 retry_after = exc.headers.get("Retry-After") if exc.headers else None

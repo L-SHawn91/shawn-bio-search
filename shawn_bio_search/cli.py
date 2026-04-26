@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -57,10 +58,16 @@ Citation verification confidence levels (verify_citation API):
     parser.add_argument("-f", "--format", choices=["json", "plain", "markdown"],
                         default="plain", help="Output format (default: plain)")
     parser.add_argument("-o", "--output", help="Output file (default: stdout)")
+    parser.add_argument("--no-cache", action="store_true",
+                        help="Bypass the SQLite HTTP cache for this run "
+                             "(equivalent to SBS_DISABLE_CACHE=1)")
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
-    
+
     args = parser.parse_args(argv)
-    
+
+    if args.no_cache:
+        os.environ["SBS_DISABLE_CACHE"] = "1"
+
     # Parse sources
     sources = None
     if args.sources:
