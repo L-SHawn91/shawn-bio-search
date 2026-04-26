@@ -1,10 +1,10 @@
-# shawn-bio-search — Claude Code Instructions
+# SHawn-bio-search — Claude Code Instructions
 
 ## Quick Start
 
 ```python
 # Requires Python 3.10+
-# pip install -e /path/to/shawn-bio-search
+# pip install -e /path/to/SHawn-bio-search
 from shawn_bio_search.sources.pubmed import verify_citation
 ```
 
@@ -115,7 +115,7 @@ or is only asking conceptually ("explain what GEO is").
 
 ### Behaviour notes
 
-- If `shawn-bio-search` command is not found, fall back to
+- If `SHawn-bio-search` command is not found, fall back to
   `pip install -e .` from the repo root, then retry.
 - Honour env vars when present: `NCBI_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`,
   `CROSSREF_EMAIL`, `UNPAYWALL_EMAIL`. Never invent fake values.

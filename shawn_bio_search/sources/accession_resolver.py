@@ -77,7 +77,7 @@ NGDC_GSA_BROWSE = "https://ngdc.cncb.ac.cn/gsa/browse"
 CNGB_PROJECT = "https://db.cngb.org/search/project"
 CNGB_CDCP_DATASET = "https://db.cngb.org/cdcp/dataset"
 
-_USER_AGENT = "shawn-bio-search/0.1 (accession-resolver)"
+_USER_AGENT = "SHawn-bio-search/0.1 (accession-resolver)"
 
 
 # =====================================================================

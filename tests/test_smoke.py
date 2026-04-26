@@ -7,7 +7,7 @@ from shawn_bio_search.query_expansion import expand_query
 
 
 def test_cli_help():
-    r = subprocess.run(["shawn-bio-search", "-h"], capture_output=True, text=True)
+    r = subprocess.run(["SHawn-bio-search", "-h"], capture_output=True, text=True)
     assert r.returncode == 0
     assert "usage" in r.stdout.lower() or "usage" in r.stderr.lower()
 

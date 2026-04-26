@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, Optional
 
-USER_AGENT = "shawn-bio-search/0.1 (+https://github.com/l-shawn91/shawn-bio-search)"
+USER_AGENT = "SHawn-bio-search/0.1 (+https://github.com/l-shawn91/SHawn-bio-search)"
 DEFAULT_TIMEOUT = 30
 
 # Per-host minimum seconds between calls; enforced lazily.

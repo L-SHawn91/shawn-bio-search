@@ -482,7 +482,7 @@ def plan_and_execute(
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="shawn-bio-download",
-        description="Download OA papers and dataset files from a shawn-bio-search bundle.",
+        description="Download OA papers and dataset files from a SHawn-bio-search bundle.",
     )
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--bundle", type=Path, help="Path to a search_bundle JSON file.")
